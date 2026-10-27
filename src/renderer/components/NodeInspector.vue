@@ -87,12 +87,38 @@ function onActionChange(event) {
         <input v-model.number="node.params.ms" type="number" />
       </label>
 
+      <label v-if="node.type === 'waitUntil'" class="field">
+        {{ t('node.targetDevice') }}
+        <select :value="node.params.deviceId" @change="onDeviceChange">
+          <option value="">{{ t('node.selectDevice') }}</option>
+          <option v-for="device in devices" :key="device.id" :value="device.id">
+            {{ device.name || device.ip }} · {{ device.driverLabel || device.kind }}
+          </option>
+        </select>
+      </label>
+
+      <label v-if="node.type === 'waitUntil'" class="field">
+        {{ t('node.waitCondition') }}
+        <textarea v-model="node.params.expression" rows="2" />
+      </label>
+
+      <div v-if="node.type === 'waitUntil'" class="row">
+        <label class="field flex-1">
+          {{ t('node.timeoutMs') }}
+          <input v-model.number="node.params.timeoutMs" type="number" />
+        </label>
+        <label class="field flex-1">
+          {{ t('node.intervalMs') }}
+          <input v-model.number="node.params.intervalMs" type="number" />
+        </label>
+      </div>
+
       <label v-if="node.type === 'notify'" class="field">
         {{ t('node.messageTemplate') }}
         <textarea v-model="node.params.message" rows="2" />
       </label>
 
-      <div v-if="node.type === 'device' || node.type === 'transform' || node.type === 'condition'" class="text-11 muted">
+      <div v-if="node.type === 'device' || node.type === 'transform' || node.type === 'condition' || node.type === 'waitUntil'" class="text-11 muted">
         {{ t('node.referenceHint') }}
         <div v-for="item in upstream.slice(0, 4)" :key="item.id" class="mono">{{ refOf(item) }}</div>
       </div>

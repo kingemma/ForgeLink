@@ -127,6 +127,12 @@ export const useOmniStore = defineStore('omni', {
       return window.omni.devices.refresh(id);
     },
 
+    async renameDevice(id, name) {
+      const result = await window.omni.devices.rename(id, name);
+      this.devices = await window.omni.devices.list();
+      return result;
+    },
+
     async removeDevice(id) {
       await window.omni.devices.remove(id);
       this.selectedDeviceId = null;
@@ -293,6 +299,7 @@ const TYPE_KEY = {
   transform: 'nodeType.transform',
   condition: 'nodeType.condition',
   delay: 'nodeType.delay',
+  waitUntil: 'nodeType.waitUntil',
   notify: 'nodeType.notify',
 };
 
@@ -326,5 +333,6 @@ export const NODE_TYPES = [
   { id: 'transform', icon: '🔀' },
   { id: 'condition', icon: '🔀' },
   { id: 'delay', icon: '⏱' },
+  { id: 'waitUntil', icon: '⏳' },
   { id: 'notify', icon: '📣' },
 ];

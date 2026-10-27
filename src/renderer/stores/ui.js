@@ -2,6 +2,8 @@ import { defineStore } from 'pinia';
 import { i18n, persistLocale } from '../i18n';
 
 const THEME_KEY = 'forgelink.theme';
+/** 引导是否已看过：看过就不再自动弹，但顶栏入口可随时再次打开 */
+const GUIDE_KEY = 'forgelink.guideSeen';
 
 /**
  * 界面级别的偏好（语言 / 主题）。
@@ -11,13 +13,25 @@ export const useUiStore = defineStore('ui', {
   state: () => ({
     locale: i18n.global.locale.value,
     theme: localStorage.getItem(THEME_KEY) || 'dark',
+    guideOpen: false,
+    guideSeen: localStorage.getItem(GUIDE_KEY) === '1',
   }),
   actions: {
     init() {
       this.applyLocale();
       this.applyTheme();
+      // 首次使用自动弹出引导；看过之后只在用户点 ❓ 时打开
+      this.guideOpen = !this.guideSeen;
       // 让内核以同一语言生成发现进度、示例工作流等文案
       window.omni?.settings?.setLocale?.(this.locale);
+    },
+    openGuide() {
+      this.guideOpen = true;
+    },
+    closeGuide() {
+      this.guideOpen = false;
+      this.guideSeen = true;
+      localStorage.setItem(GUIDE_KEY, '1');
     },
     setLocale(locale) {
       if (locale !== 'zh' && locale !== 'en') return;

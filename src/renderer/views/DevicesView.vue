@@ -9,9 +9,19 @@ const store = useOmniStore();
 const { t } = useI18n();
 const keyword = ref('');
 const kindFilter = ref('all');
+const statusFilter = ref('all');
+
+/** 离线 = 非 online（含 offline / error / unknown），保证「全部 = 在线 + 离线」 */
+const statusGroups = computed(() => [
+  { key: 'all', label: t('devices.groupAll'), count: store.devices.length },
+  { key: 'online', label: t('devices.groupOnline'), count: store.onlineCount },
+  { key: 'offline', label: t('devices.groupOffline'), count: store.devices.length - store.onlineCount },
+]);
 
 const filtered = computed(() =>
   store.devices.filter((device) => {
+    if (statusFilter.value === 'online' && device.status !== 'online') return false;
+    if (statusFilter.value === 'offline' && device.status === 'online') return false;
     if (kindFilter.value !== 'all' && (device.kind || 'unknown') !== kindFilter.value) return false;
     if (!keyword.value) return true;
     const text = `${device.ip} ${device.name || ''} ${device.driverLabel || ''} ${(device.interfaces || [])
@@ -22,6 +32,12 @@ const filtered = computed(() =>
 );
 
 const kinds = computed(() => ['all', ...Object.keys(store.kindCounts)]);
+
+const emptyMessage = computed(() => {
+  if (!store.devices.length) return t('devices.emptyNoDevice', { action: t('topbar.quickScan') });
+  if (statusFilter.value !== 'all') return t('devices.emptyGroup');
+  return t('devices.emptyFiltered');
+});
 
 watch(
   () => store.selectedDeviceId,
@@ -39,6 +55,17 @@ async function handleRefresh(id) {
 <template>
   <div class="view">
     <div class="toolbar">
+      <div class="row" style="gap: 6px">
+        <button
+          v-for="group in statusGroups"
+          :key="group.key"
+          class="chip"
+          :class="{ accent: statusFilter === group.key }"
+          @click="statusFilter = group.key"
+        >
+          {{ group.label }} ({{ group.count }})
+        </button>
+      </div>
       <input v-model="keyword" :placeholder="t('devices.searchPlaceholder')" style="width: 260px" />
       <select v-model="kindFilter" style="width: 150px">
         <option v-for="kind in kinds" :key="kind" :value="kind">
@@ -58,10 +85,9 @@ async function handleRefresh(id) {
         :device="device"
         :selected="device.id === store.selectedDeviceId"
         @select="store.selectDevice"
+        @rename="store.renameDevice"
       />
-      <div v-if="!filtered.length" class="empty">
-        {{ store.devices.length ? t('devices.emptyFiltered') : t('devices.emptyNoDevice', { action: t('topbar.quickScan') }) }}
-      </div>
+      <div v-if="!filtered.length" class="empty">{{ emptyMessage }}</div>
     </div>
 
     <DeviceDetail

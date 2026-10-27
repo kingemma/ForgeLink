@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n';
 import { useOmniStore } from './stores';
 import { useUiStore } from './stores/ui';
 import { availableLocales } from './i18n';
+import GuideOverlay from './components/GuideOverlay.vue';
 import DevicesView from './views/DevicesView.vue';
 import WorkflowView from './views/WorkflowView.vue';
 import MonitorView from './views/MonitorView.vue';
@@ -73,6 +74,7 @@ onMounted(() => {
       <select class="locale-select" :value="ui.locale" @change="ui.setLocale($event.target.value)">
         <option v-for="item in availableLocales" :key="item.code" :value="item.code">{{ item.label }}</option>
       </select>
+      <button class="ghost icon" :title="t('guide.open')" @click="ui.openGuide()">❓</button>
       <button class="ghost icon" :title="ui.theme === 'dark' ? 'Light' : 'Dark'" @click="ui.toggleTheme()">
         {{ ui.theme === 'dark' ? '🌙' : '☀️' }}
       </button>
@@ -110,5 +112,7 @@ onMounted(() => {
     <main class="main">
       <component :is="currentView" />
     </main>
+
+    <GuideOverlay :open="ui.guideOpen" @close="ui.closeGuide()" />
   </div>
 </template>
