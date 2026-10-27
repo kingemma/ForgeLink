@@ -45,6 +45,24 @@ const NODE_TYPES = {
     description: '等待一段时间，用于等待设备动作完成',
     fields: [{ name: 'ms', label: '毫秒', type: 'number', default: 1000 }],
   },
+  waitUntil: {
+    id: 'waitUntil',
+    label: '等待设备状态',
+    icon: '⏳',
+    description: '轮询等待某台设备满足条件（如 A 臂 idle 且 DO=1）再放行下游，用于多机械臂交接',
+    fields: [
+      { name: 'deviceId', label: '设备', type: 'device', required: true },
+      {
+        name: 'expression',
+        label: '条件表达式',
+        type: 'expression',
+        required: true,
+        default: "{{ eq(state.metrics.status, 'idle') }}",
+      },
+      { name: 'timeoutMs', label: '超时(毫秒)', type: 'number', default: 15000 },
+      { name: 'intervalMs', label: '轮询间隔(毫秒)', type: 'number', default: 500 },
+    ],
+  },
   notify: {
     id: 'notify',
     label: '通知/日志',

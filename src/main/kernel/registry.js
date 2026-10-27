@@ -58,9 +58,23 @@ class Registry {
       lastSeen: Date.now(),
     };
 
+    // 用户改过名就锁住：发现层带来的自述名称（可能为 null）不应覆盖人工命名
+    if (existing.nameLocked) merged.name = existing.name;
+
     this.devices.set(id, merged);
     this._emit();
     return merged;
+  }
+
+  /** 用户改名：改名即上锁；传空字符串表示恢复自动命名 */
+  rename(id, name) {
+    const device = this.devices.get(id);
+    if (!device) return null;
+    const value = String(name ?? '').trim() || null;
+    device.name = value;
+    device.nameLocked = Boolean(value);
+    this._emit();
+    return device;
   }
 
   get(id) {

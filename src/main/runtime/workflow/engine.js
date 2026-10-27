@@ -172,6 +172,26 @@ class WorkflowEngine {
         await sleep(Math.min(ms, 60000));
         return { waited: ms };
       }
+      // 多机械臂交接：不用硬编码延时赌时间，而是轮询等待上游设备真正进入目标状态
+      case 'waitUntil': {
+        if (!params.deviceId) throw new Error('未指定设备');
+        // 条件表达式必须取原始值：params 已被整体解析过一次，
+        // 那时 state 还不存在，提前求值会把条件算坏
+        const expression = node.params?.expression ?? "{{ eq(state.metrics.status, 'idle') }}";
+        const timeoutMs = Math.min(Math.max(0, Number(params.timeoutMs ?? 15000)), 600000);
+        const intervalMs = Math.min(Math.max(200, Number(params.intervalMs ?? 500)), 10000);
+        const startedAt = Date.now();
+        for (;;) {
+          const state = await this.agent.readState(params.deviceId);
+          const ok = Boolean(resolveTemplate(expression, { ...context, state }));
+          if (ok) return { deviceId: params.deviceId, waited: Date.now() - startedAt, state };
+          if (Date.now() - startedAt >= timeoutMs) {
+            throw new Error(`等待超时：设备 ${params.deviceId} 未在 ${timeoutMs}ms 内满足交接条件`);
+          }
+          emit('device:wait', { deviceId: params.deviceId, waited: Date.now() - startedAt });
+          await sleep(intervalMs);
+        }
+      }
       case 'notify': {
         const message = String(resolveTemplate(params.message ?? '{{ input }}', context));
         bus.info('workflow', message);

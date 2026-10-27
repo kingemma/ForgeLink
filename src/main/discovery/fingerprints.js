@@ -5,6 +5,8 @@
  * 先验来自 IANA 端口分配与行业惯例，最终结论必须由实际探测（probe）确认——
  * 这里只提供候选集与权重，不直接下结论。
  */
+const { ROBOT_PORTS } = require('./robots');
+
 const PORT_HINTS = {
   23: [{ protocol: 'telnet', weight: 0.7 }],
   80: [{ protocol: 'http', weight: 0.8 }],
@@ -28,7 +30,10 @@ const PORT_HINTS = {
 };
 
 /** 快速扫描：只探最可能出现的端口，保证一次全网扫描在秒级完成 */
-const QUICK_PORTS = [21, 22, 23, 80, 161, 443, 502, 631, 1883, 3000, 4485, 4840, 5000, 515, 8080, 8081, 8883, 9000, 9100, 9200, 10000, 20000, 47809];
+const BASE_QUICK_PORTS = [21, 22, 23, 80, 161, 443, 502, 631, 1883, 3000, 4485, 4840, 5000, 515, 8080, 8081, 8883, 9000, 9100, 9200, 10000, 20000, 47809];
+
+// 机械臂端口并入快速扫描：UR(29999/30001~30004)、EtherNet/IP(44818)、KUKA EKI(54600) 等
+const QUICK_PORTS = [...new Set([...BASE_QUICK_PORTS, ...ROBOT_PORTS])].sort((a, b) => a - b);
 
 /** 深度扫描：在快速扫描命中的主机上再做 1~10000 全端口（去重后） */
 function deepPorts(extra = []) {

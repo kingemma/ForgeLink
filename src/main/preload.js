@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('omni', {
     list: () => invoke('devices:list'),
     history: (id) => invoke('devices:history', id),
     remove: (id) => invoke('devices:remove', id),
+    rename: (id, name) => invoke('devices:rename', { id, name }),
     clear: () => invoke('devices:clear'),
     refresh: (id) => invoke('device:refresh', id),
     state: (id) => invoke('device:state', id),

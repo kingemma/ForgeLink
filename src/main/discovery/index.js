@@ -1,7 +1,7 @@
 const bus = require('../kernel/bus');
 const { t } = require('../i18n');
 const { Registry } = require('../kernel/registry');
-const { enumerateHosts, localSubnets } = require('./arp');
+const { arpTable, arpWarmup, enumerateHosts, localSubnets } = require('./arp');
 const { scanPorts } = require('./portscan');
 const mdns = require('./mdns');
 const ssdp = require('./ssdp');
@@ -138,7 +138,23 @@ class DiscoveryService {
       }
       bus.info('discovery', `候选主机 ${candidates.size} 台（网段：${subnets.map((s) => s.cidr).join(', ') || '未识别'}）`);
 
-      const targets = [...candidates.values()];
+      // ---- 二层确认：UDP 触发 ARP，用「有没有 MAC」判断主机是否真实存在 ----
+      // 透明代理 / 网关会让任意 IP 的 TCP 都「开放」，只有二层 ARP 应答不会说谎。
+      const unresolved = [...candidates.values()].filter((target) => target.source === 'subnet' && !target.mac);
+      if (unresolved.length) {
+        this._progress('arp', t('discovery.arpWarmup'));
+        await arpWarmup(unresolved.map((target) => target.ip));
+        const macByIp = new Map((await arpTable()).filter((item) => item.mac).map((item) => [item.ip, item.mac]));
+        for (const target of unresolved) {
+          const mac = macByIp.get(target.ip);
+          if (!mac) continue;
+          target.mac = mac;
+          target.source = 'arp';
+        }
+      }
+
+      // 丢掉二层没应答的地址（代理伪造 / 不存在的 IP），只保留真实主机
+      const targets = [...candidates.values()].filter((target) => target.source !== 'subnet' || target.mac);
       const results = [];
 
       // ---- 端口扫描 ----
@@ -232,7 +248,25 @@ class DiscoveryService {
             details: target.snmp.details,
           });
         }
-        if (!interfaces.length) continue;
+        // 二层确认存在、但没探到任何协议：仍作为「主机」入档，
+        // 否则局域网里不放端口的设备（手机、IoT、只开了 SNMP 的设备）会被整轮发现漏掉
+        if (!interfaces.length) {
+          if (target.mac && !target.self) {
+            results.push(
+              this.registry.upsert({
+                id: Registry.keyOf(target.ip),
+                ip: target.ip,
+                mac: target.mac,
+                name: target.name || null,
+                kind: 'host',
+                interfaces: [],
+                tags: ['discovered', 'arp'],
+                status: 'online',
+              }),
+            );
+          }
+          continue;
+        }
 
         // 一个 IP 不等于一台设备：同一主机上可能同时跑机械臂控制器与打印服务。
         // 先按「设备自述」（信标）切分，再按协议归属切分，最后才是主机级兜底。

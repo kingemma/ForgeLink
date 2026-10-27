@@ -7,9 +7,21 @@
  *   {{ device.<路径> }}           引用设备档案
  *   {{ now }}                     当前时间戳
  *   {{ round(x, 2) }} {{ join(a) }} {{ len(a) }} {{ json(x) }}  内置函数
+ *   {{ eq(a,b) }} {{ ne(a,b) }} {{ gt/gte/lt/lte(a,b) }}       比较（交接条件用）
  * 若整个模板只是一个占位符，则返回原始类型（数字/数组/对象），否则做字符串插值。
  */
 const PLACEHOLDER = /\{\{([^}]+)\}\}/g;
+
+/** 宽松相等：数字与其字符串形式视为相等（寄存器读数常是数字，条件里常写字面量） */
+function looseEq(a, b) {
+  if (a === b) return true;
+  if (a === null || a === undefined || b === null || b === undefined) return false;
+  const numericA = Number(a);
+  const numericB = Number(b);
+  const bothNumeric =
+    String(a).trim() !== '' && String(b).trim() !== '' && Number.isFinite(numericA) && Number.isFinite(numericB);
+  return bothNumeric ? numericA === numericB : String(a) === String(b);
+}
 
 const FUNCTIONS = {
   round: (value, digits = 0) => {
@@ -24,6 +36,12 @@ const FUNCTIONS = {
   num: (value) => (Number.isFinite(Number(value)) ? Number(value) : 0),
   default: (value, fallback) => (value === undefined || value === null || value === '' ? fallback : value),
   sum: (...values) => values.reduce((acc, value) => acc + (Number(value) || 0), 0),
+  eq: (a, b) => looseEq(a, b),
+  ne: (a, b) => !looseEq(a, b),
+  gt: (a, b) => Number(a) > Number(b),
+  gte: (a, b) => Number(a) >= Number(b),
+  lt: (a, b) => Number(a) < Number(b),
+  lte: (a, b) => Number(a) <= Number(b),
 };
 
 function resolvePath(context, path) {

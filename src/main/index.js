@@ -68,6 +68,7 @@ function stripVolatile(device) {
     ip: device.ip,
     mac: device.mac,
     name: device.name,
+    nameLocked: device.nameLocked,
     vendor: device.vendor,
     model: device.model,
     kind: device.kind,
@@ -204,6 +205,12 @@ function registerIpc() {
     registry.remove(id);
     return { ok: true };
   });
+  ipcMain.handle('devices:rename', (_event, { id, name } = {}) => {
+    const device = registry.rename(id, name);
+    if (device) bus.info('device', `设备已重命名为「${device.name || device.ip}」`);
+    return { ok: Boolean(device), device };
+  });
+
   ipcMain.handle('devices:clear', () => {
     registry.clear();
     return { ok: true };

@@ -1,6 +1,7 @@
 const os = require('node:os');
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
+const dgram = require('node:dgram');
 
 const execFileAsync = promisify(execFile);
 
@@ -119,6 +120,44 @@ function parseArp(output) {
 }
 
 /**
+ * 用 UDP 触发 ARP 解析。
+ *
+ * 透明代理 / 防火墙会让任意 IP 的 TCP 都「开放」，但二层 ARP 必须由真实主机应答才能完成。
+ * 所以先给每个地址发一个 UDP 包把邻居表填起来，之后「有没有 MAC」就是主机是否真实存在的判据。
+ */
+async function arpWarmup(ips, options = {}) {
+  const { port = 9, settleMs = 400, guardMs = 2500 } = options;
+  if (!ips.length) return;
+  const socket = dgram.createSocket({ type: 'udp4' });
+  await new Promise((resolve) => socket.bind(0, resolve));
+  const payload = Buffer.from('forgelink-arp-probe');
+  await new Promise((resolve) => {
+    let pending = ips.length;
+    const timer = setTimeout(resolve, guardMs); // 兜底：回调丢失时不要卡住整轮扫描
+    const tick = () => {
+      pending -= 1;
+      if (pending <= 0) {
+        clearTimeout(timer);
+        resolve();
+      }
+    };
+    for (const ip of ips) {
+      try {
+        socket.send(payload, 0, payload.length, port, ip, tick);
+      } catch {
+        tick();
+      }
+    }
+  });
+  await new Promise((resolve) => setTimeout(resolve, settleMs)); // 等 ARP 应答落进邻居表
+  try {
+    socket.close();
+  } catch {
+    /* 已关闭 */
+  }
+}
+
+/**
  * 综合产出候选主机：ARP 表优先，其次本机网段内的完整扫描（可选）。
  * @param {{includeSubnetScan?: boolean, limit?: number}} options
  */
@@ -160,4 +199,4 @@ function sameSubnet(ip, subnet) {
   return ((ipToInt(ip) & mask) >>> 0) === ((ipToInt(subnet.address) & mask) >>> 0);
 }
 
-module.exports = { localSubnets, arpTable, enumerateHosts, expandCidr, ipToInt, intToIp, sameSubnet };
+module.exports = { localSubnets, arpTable, arpWarmup, enumerateHosts, expandCidr, ipToInt, intToIp, sameSubnet };

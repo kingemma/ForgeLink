@@ -65,7 +65,7 @@ class GenericDriver extends DeviceDriver {
       client.close();
       return { status: 'online', metrics: { reachable: true, latency: Date.now() - started }, raw: {} };
     }
-    const text = factsToText({ interfaces: [this.interface] });
+    const text = factsToText({ interfaces: this.interface ? [this.interface] : [] });
     return {
       status: 'online',
       metrics: { reachable: true, latency: Date.now() - started, protocol: this.protocol, hint: text.slice(0, 120) },
