@@ -10,6 +10,9 @@ const { QUICK_PORTS, SERVICE_TYPES, deepPorts, serviceHint, hintsFor } = require
 const { detect, probeSnmp } = require('../protocols/detect');
 const { selectDriver } = require('../drivers');
 
+/** 子网枚举出的「仅知 IP」主机只探这些端口：覆盖 HP 等主流打印机的 JetDirect/IPP/LPD/EWS */
+const SUBNET_PORTS = [80, 443, 515, 631, 9100];
+
 /**
  * 发现编排器（第一层）。
  *
@@ -70,7 +73,7 @@ class DiscoveryService {
     if (this.running) return { ok: false, reason: t('discovery.running') };
     this.running = true;
     const started = Date.now();
-    const { deep = false, includeSubnetScan = false, hosts: explicitHosts = [] } = options;
+    const { deep = false, includeSubnetScan = true, hosts: explicitHosts = [] } = options;
     const localSubnetList = localSubnets();
     const candidates = new Map(); // ip -> {ip, mac, subnet, facts}
     const touch = (ip, patch = {}) => {
@@ -130,7 +133,7 @@ class DiscoveryService {
         this._progress('arp', t('discovery.arp'));
         const enumerated = await enumerateHosts({ includeSubnetScan });
         subnets = enumerated.subnets;
-        for (const host of enumerated.hosts) touch(host.ip, { mac: host.mac, subnet: host.subnet });
+        for (const host of enumerated.hosts) touch(host.ip, { mac: host.mac, subnet: host.subnet, source: host.source });
         for (const own of localSubnetList) touch(own.address, { mac: own.mac, subnet: own.cidr, self: true });
       }
       bus.info('discovery', `候选主机 ${candidates.size} 台（网段：${subnets.map((s) => s.cidr).join(', ') || '未识别'}）`);
@@ -139,28 +142,40 @@ class DiscoveryService {
       const results = [];
 
       // ---- 端口扫描 ----
+      // 子网枚举出的「仅知 IP」主机（多为空闲设备）只为打印/网页类端口做定向探测，
+      // 避免对 /24 全网跑全套端口；ARP/广播命中的主机仍按 QUICK_PORTS 全量探测。
       this._progress('portscan', t('discovery.portscan', { n: targets.length }));
       const portPlan = new Map();
       for (const target of targets) {
+        if (options.ports) {
+          portPlan.set(target.ip, options.ports);
+          continue;
+        }
         const advertisedPorts = collectAdvertisedPorts(target.facts);
-        const ports = options.ports || [...new Set([...(deep ? deepPorts(advertisedPorts) : QUICK_PORTS), ...advertisedPorts])];
-        portPlan.set(target.ip, ports);
+        const base = deep
+          ? deepPorts(advertisedPorts)
+          : target.source === 'subnet'
+            ? SUBNET_PORTS
+            : QUICK_PORTS;
+        portPlan.set(target.ip, [...new Set([...base, ...advertisedPorts])]);
       }
 
       let scanned = 0;
-      for (const target of targets) {
+      const scanOne = async (target) => {
         const ports = portPlan.get(target.ip) || QUICK_PORTS;
         const open = await scanPorts(target.ip, ports, { concurrency: 160, timeout: deep ? 250 : 350 });
-        // SNMP 走 UDP，TCP 扫描扫不到，对每台主机单独问一次
-        const snmpMatch = await probeSnmp(target.ip, 161, 900).catch(() => null);
         target.openPorts = open.map((item) => item.port);
-        target.snmp = snmpMatch;
+        // SNMP 走 UDP：ARP/广播命中的主机必问；仅子网枚举出的主机有 TCP 端口才问，
+        // 否则 /24 全网各等 900ms 会把一轮扫描拖到分钟级。
+        const askSnmp = target.source !== 'subnet' || open.length > 0;
+        target.snmp = askSnmp ? await probeSnmp(target.ip, 161, 900).catch(() => null) : null;
         scanned += 1;
         this._progress('portscan', t('discovery.portscanProgress', { done: scanned, total: targets.length }), scanned, targets.length);
-        if (open.length || snmpMatch) {
-          bus.info('discovery', `${target.ip} 开放端口 ${open.map((p) => p.port).join(',') || '无'}${snmpMatch ? ' + SNMP' : ''}`);
+        if (open.length || target.snmp) {
+          bus.info('discovery', `${target.ip} 开放端口 ${open.map((p) => p.port).join(',') || '无'}${target.snmp ? ' + SNMP' : ''}`);
         }
-      }
+      };
+      await runWithConcurrency(targets, 16, scanOne);
 
       // ---- 协议识别 ----
       // 现实网络里存在「全端口伪开放」的防火墙/网关，逐个端口试协议会拖垮整轮扫描。
@@ -170,6 +185,8 @@ class DiscoveryService {
       const totalPorts = targets.reduce((sum, target) => sum + (target.openPorts?.length || 0), 0);
       let identified = 0;
       let budgetExceeded = false;
+      // 预算从「识别阶段」开始计时：端口扫描/SNMP 再慢，也不该把识别预算提前耗光
+      const identifyStarted = Date.now();
       this._progress('identify', t('discovery.identify', { n: totalPorts }));
       for (const target of targets) {
         if (budgetExceeded) break;
@@ -180,7 +197,7 @@ class DiscoveryService {
         const allPortsOpen = (target.openPorts || []).length > 10;
         const unknownLimit = allPortsOpen ? 2 : 3;
         for (const port of target.openPorts || []) {
-          if (Date.now() - started > timeBudgetMs) {
+          if (Date.now() - identifyStarted > timeBudgetMs) {
             budgetExceeded = true;
             bus.warn('discovery', `协议识别超过时间预算 ${timeBudgetMs}ms，剩余端口本次跳过`);
             break;
@@ -363,6 +380,18 @@ function mergeHints(port, facts) {
     }
   }
   return hints;
+}
+
+/** 以固定并发跑完一批异步任务，避免对 /24 全网串行探测把一轮扫描拖成分钟级 */
+async function runWithConcurrency(items, limit, worker) {
+  let cursor = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      await worker(items[index], index);
+    }
+  });
+  await Promise.all(runners);
 }
 
 module.exports = { DiscoveryService };

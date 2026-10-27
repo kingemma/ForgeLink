@@ -123,21 +123,31 @@ function parseArp(output) {
  * @param {{includeSubnetScan?: boolean, limit?: number}} options
  */
 async function enumerateHosts(options = {}) {
-  const { includeSubnetScan = false, limit = 256 } = options;
+  const { includeSubnetScan = false, limit = 256, totalLimit = 512 } = options;
   const subnets = localSubnets().filter((s) => s.size <= 65536);
   const candidates = new Map();
   const subnetOf = (ip) => subnets.find((s) => sameSubnet(ip, s));
 
   for (const entry of await arpTable()) {
+    // 没有 MAC 的是「未解析」邻居（多为扫描产生的残缺项或代理 ARP），并不是真机
+    if (!entry.mac) continue;
     const subnet = subnetOf(entry.ip);
     if (!subnet) continue;
     candidates.set(entry.ip, { ...entry, subnet: subnet.cidr, confidence: 0.9 });
   }
 
   if (includeSubnetScan) {
-    for (const subnet of subnets) {
-      for (const ip of expandCidr(subnet.cidr, limit)) {
-        if (!candidates.has(ip)) candidates.set(ip, { ip, mac: null, subnet: subnet.cidr, source: 'subnet', confidence: 0.4 });
+    // 小网段优先（真实局域网多为 /24，VPN/虚拟网卡常是 /16），并给总量封顶，
+    // 避免多网卡机器把一轮扫描摊到上千个无意义地址上。
+    const ordered = [...subnets].sort((a, b) => a.size - b.size);
+    let added = 0;
+    for (const subnet of ordered) {
+      const room = totalLimit - added;
+      if (room <= 0) break;
+      for (const ip of expandCidr(subnet.cidr, Math.min(limit, room))) {
+        if (candidates.has(ip)) continue;
+        candidates.set(ip, { ip, mac: null, subnet: subnet.cidr, source: 'subnet', confidence: 0.4 });
+        added += 1;
       }
     }
   }
