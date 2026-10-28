@@ -1,0 +1,83 @@
+name: release
+
+# Windows 只发 zip 免安装包：解压即用，不做代码签名。
+# 因此 CI 里没有签名步骤，产物就是 electron-builder 直接打出来的压缩包。
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # 手动触发只走构建，不建 Release（Release 只在打 tag 时创建）
+  workflow_dispatch:
+
+permissions:
+  contents: write # 创建 Release 并上传资产
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    env:
+      # CI 上每个 job 都是干净环境，electron-builder 的工具链要重新下载，
+      # 走国内镜像避免卡在 GitHub 直连超时
+      ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 准备 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 内核测试
+        run: npm test
+
+      - name: 渲染层测试
+        run: npm run test:ui
+
+      - name: 构建渲染层
+        run: npm run build
+
+      - name: 打包 zip（免安装）
+        run: npx electron-builder --win --publish never
+
+      # 解压即用的前提是压缩包里带的是完整 win-unpacked 目录，缺文件就跑不起来
+      - name: 校验产物
+        run: |
+          Get-ChildItem release -Filter *.zip | Select-Object Name, Length
+          $zip = Get-ChildItem release -Filter *.zip | Select-Object -First 1
+          if (-not $zip) { throw '没有产出 zip' }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($zip.FullName)
+          try {
+            $names = $archive.Entries | ForEach-Object { $_.FullName }
+          } finally {
+            # 不关闭的话后续步骤上传/移动 zip 会碰到文件占用
+            $archive.Dispose()
+          }
+          $required = @('ForgeLink.exe', 'resources/app.asar')
+          foreach ($item in $required) {
+            if (-not ($names -contains $item)) { throw "zip 缺少 $item" }
+          }
+          "zip 条目数：$($names.Count)，关键文件齐全"
+
+      - name: 上传 zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: forgelink-windows-zip
+          if-no-files-found: error
+          path: release/*.zip
+
+      - name: 创建 Release（草稿）
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          # 先建草稿，人工解压验证后再发布
+          draft: true
+          files: release/*.zip
+          generate_release_notes: true

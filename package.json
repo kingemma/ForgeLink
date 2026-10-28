@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "description": "ForgeLink - 轻量级车间控制器：局域网设备自动发现、协议自动识别、运行状态监测与多设备工作流编排",
+  "author": {
+    "name": "Evan, Zhen Wang",
+    "email": "18901599114@163.com"
+  },
+  "license": "MIT",
   "main": "src/main/index.js",
   "scripts": {
     "dev": "concurrently -n VITE,ELECTRON -c cyan,magenta \"npm:dev:renderer\" \"npm:dev:electron\"",
@@ -10,6 +15,11 @@
     "dev:electron": "wait-on tcp:5173 && electron . --dev",
     "build": "vite build",
     "start": "electron .",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:dir": "npm run build && electron-builder --win --dir",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "gen:icons": "node scripts/generate-brand-icons.js",
     "sim": "node src/main/simulator/cli.js",
     "test": "node --test test/*.test.js",
     "test:ui": "vitest run",
@@ -25,6 +35,7 @@
     "@vue/test-utils": "^2.5.1",
     "concurrently": "^9.1.0",
     "electron": "^33.2.0",
+    "electron-builder": "^26.18.0",
     "jsdom": "^29.1.1",
     "vite": "^6.0.5",
     "vitest": "^5.0.5",

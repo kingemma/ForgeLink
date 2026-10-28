@@ -1,5 +1,10 @@
 node_modules/
 dist-renderer/
 dist-electron/
+release/
 *.log
 .DS_Store
+
+# 证书私钥绝不能入库
+*.pfx
+*.p12
