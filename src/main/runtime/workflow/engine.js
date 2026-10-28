@@ -99,7 +99,9 @@ class WorkflowEngine {
         else if (output !== undefined) merged.value = output;
       }
       const device = node.params?.deviceId ? this.registry.get(node.params.deviceId) : null;
-      const nodeContext = { ...context, input: merged, device: device || null, now: Date.now() };
+      // 根节点没有上游：此时用工作流入参作为输入，否则 workflow.input 永远取不到
+      const input = Object.keys(merged).length ? merged : context.input;
+      const nodeContext = { ...context, input, device: device || null, now: Date.now() };
 
       emit('node:start', { nodeId, label: node.label, type: node.type });
       const startedAt = Date.now();

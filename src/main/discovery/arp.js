@@ -74,7 +74,8 @@ function expandCidr(cidr, limit = 512) {
   const start = ipToInt(base) & (bits === 0 ? 0 : (0xffffffff << (32 - bits)) >>> 0);
   const total = Math.min(2 ** (32 - bits), limit);
   const list = [];
-  for (let i = 1; i < total; i++) list.push(intToIp((start + i) >>> 0));
+  // 跳过网络号(0)与广播号(total-1)：去探测广播地址没有意义
+  for (let i = 1; i < total - 1; i += 1) list.push(intToIp((start + i) >>> 0));
   return list;
 }
 
