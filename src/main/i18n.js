@@ -33,6 +33,15 @@ const MESSAGES = {
     'demo.generated': '演示环境已就绪：{name}',
     'demo.noDevices': '未发现机械臂或打印机，无法生成演示环境',
 
+    'workflow.err.empty': '工作流还没有节点',
+    'workflow.err.missingDevice': '未指定设备',
+    'workflow.err.deviceGone': '设备不存在：{id}',
+    'workflow.err.missingAction': '未指定动作',
+    'workflow.err.missingExpression': '未填写表达式',
+    'workflow.err.danglingEdge': '存在指向已删除节点的连线',
+    'workflow.err.cycle': '存在循环依赖：工作流必须是有向无环图',
+    'workflow.warn.branchAmbiguous': '条件节点分出多条连线但未标记分支，运行时两条都会执行',
+
     'demo.name': '示例：机械臂取放 + 打印标签',
     'demo.description': '机械臂回到安全位 → 移动到取件位 → 抓取 → 搬运到放件位 → 释放 → 打印机打印含循环计数的标签',
     'demo.node.readState': '读取机械臂状态',
@@ -72,6 +81,15 @@ const MESSAGES = {
     'devices.cleared': 'Cleared {n} device profiles',
     'demo.generated': 'Demo environment ready: {name}',
     'demo.noDevices': 'No robot arm or printer found, cannot build the demo environment',
+
+    'workflow.err.empty': 'Workflow has no nodes yet',
+    'workflow.err.missingDevice': 'No device selected',
+    'workflow.err.deviceGone': 'Device no longer exists: {id}',
+    'workflow.err.missingAction': 'No action selected',
+    'workflow.err.missingExpression': 'Expression is empty',
+    'workflow.err.danglingEdge': 'Some edges point to deleted nodes',
+    'workflow.err.cycle': 'Cycle detected: a workflow must be a directed acyclic graph',
+    'workflow.warn.branchAmbiguous': 'Condition node has several edges without branch markers, so all of them will run',
 
     'demo.name': 'Sample: Robot-arm Pick & Place + Print Label',
     'demo.description': 'Robot returns to safe pose → moves to pick pose → grips → carries to place pose → releases → printer prints a label with the cycle count',

@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld('omni', {
     list: () => invoke('workflow:list'),
     save: (workflow) => invoke('workflow:save', workflow),
     remove: (id) => invoke('workflow:remove', id),
+    validate: (workflow) => invoke('workflow:validate', workflow),
     run: (id, input) => invoke('workflow:run', { id, input }),
     stop: (runId) => invoke('workflow:stop', runId),
   },

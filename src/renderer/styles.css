@@ -550,6 +550,43 @@ label.field {
   cursor: grabbing;
 }
 
+/**
+ * 节点的实时运行状态。模板里 rect 的描边是内联 presentation attribute，
+ * 优先级低于这里的 CSS 规则，所以可以直接覆盖。
+ */
+.node-box.state-running > rect {
+  stroke: var(--accent);
+  stroke-width: 2;
+  animation: node-running 1.2s ease-in-out infinite;
+}
+
+.node-box.state-ok > rect {
+  stroke: var(--ok);
+  stroke-width: 2;
+}
+
+.node-box.state-error > rect {
+  stroke: var(--err);
+  stroke-width: 2;
+}
+
+.node-box.state-skipped > rect {
+  stroke: var(--muted);
+  stroke-width: 1.6;
+  stroke-dasharray: 6 4;
+}
+
+@keyframes node-running {
+  0%,
+  100% {
+    stroke-opacity: 1;
+  }
+
+  50% {
+    stroke-opacity: 0.35;
+  }
+}
+
 .node-label {
   font-size: 12px;
   fill: var(--text);

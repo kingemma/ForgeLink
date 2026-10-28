@@ -15,6 +15,8 @@ const props = defineProps({
   selectedNodeId: { type: String, default: null },
   selectedEdgeIndex: { type: Number, default: null },
   devices: { type: Array, default: () => [] },
+  /** 节点实时运行状态：{ [nodeId]: 'running' | 'ok' | 'error' | 'skipped' } */
+  nodeStates: { type: Object, default: () => ({}) },
 });
 const emit = defineEmits(['select-node', 'select-edge', 'move-node', 'connect', 'clear-selection']);
 const { t } = useI18n();
@@ -152,8 +154,7 @@ function subtitle(node) {
       <g
         v-for="node in nodes"
         :key="node.id"
-        class="node-box"
-        :class="{ dragging: drag?.id === node.id }"
+        :class="['node-box', { dragging: drag?.id === node.id }, nodeStates[node.id] ? `state-${nodeStates[node.id]}` : '']"
         :transform="`translate(${node.pos?.x || 0},${node.pos?.y || 0})`"
         @mousedown="startDrag(node, $event)"
       >

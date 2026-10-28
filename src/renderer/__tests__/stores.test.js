@@ -42,6 +42,68 @@ describe('UI 偏好 store', () => {
   });
 });
 
+describe('编排 store', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    setActivePinia(createPinia());
+  });
+
+  it('liveStates 由内核事件累积出每个节点的实时状态', () => {
+    const store = useWorkflowStore();
+    store.pushEvent({ runId: 'r1', event: 'run:start' });
+    expect(store.currentRunId).toBe('r1');
+
+    store.pushEvent({ runId: 'r1', event: 'node:start', nodeId: 'a' });
+    expect(store.liveStates.a).toBe('running');
+
+    store.pushEvent({ runId: 'r1', event: 'node:done', nodeId: 'a', result: { ok: true } });
+    expect(store.liveStates.a).toBe('ok');
+
+    store.pushEvent({ runId: 'r1', event: 'node:skip', nodeId: 'b' });
+    expect(store.liveStates.b).toBe('skipped');
+
+    store.pushEvent({ runId: 'r1', event: 'node:done', nodeId: 'c', result: { ok: false, error: 'boom' } });
+    expect(store.liveStates.c).toBe('error');
+  });
+
+  it('只统计当前这一次运行的事件', () => {
+    const store = useWorkflowStore();
+    store.pushEvent({ runId: 'old', event: 'node:done', nodeId: 'x', result: { ok: true } });
+    store.pushEvent({ runId: 'new', event: 'run:start' });
+    store.pushEvent({ runId: 'old', event: 'node:done', nodeId: 'y', result: { ok: true } });
+    expect(store.liveStates.x).toBeUndefined();
+    expect(store.liveStates.y).toBeUndefined();
+  });
+
+  it('校验不通过时不发起运行', async () => {
+    const store = useWorkflowStore();
+    store.create();
+    window.omni.workflow.validate = async () => ({ ok: false, errors: [{ code: 'empty', message: '没有节点' }], warnings: [] });
+    let ran = false;
+    window.omni.workflow.run = async () => {
+      ran = true;
+      return {};
+    };
+    const result = await store.run();
+    expect(result).toBeNull();
+    expect(ran).toBe(false, '校验失败不应发起运行');
+    expect(store.validation.ok).toBe(false);
+  });
+
+  it('校验通过时正常发起运行', async () => {
+    const store = useWorkflowStore();
+    store.create();
+    window.omni.workflow.validate = async () => ({ ok: true, errors: [], warnings: [] });
+    let ran = false;
+    window.omni.workflow.run = async () => {
+      ran = true;
+      return { runId: 'r9', status: 'success', results: {} };
+    };
+    await store.run();
+    expect(ran).toBe(true);
+    expect(store.runResult.status).toBe('success');
+  });
+});
 
 describe('设备 store：清空与一键演示', () => {
   beforeEach(() => {

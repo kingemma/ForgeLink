@@ -196,10 +196,24 @@ export const useWorkflowStore = defineStore('workflow', {
     running: false,
     runResult: null,
     events: [],
+    validation: null,
+    currentRunId: null,
   }),
   getters: {
     current: (state) => state.workflows.find((item) => item.id === state.currentId) || null,
     selectedNode: (state) => state.draft?.nodes.find((node) => node.id === state.selectedNodeId) || null,
+    /** 运行过程中每个节点的实时状态：由内核推送的事件累积而成 */
+    liveStates: (state) => {
+      const map = {};
+      for (const event of state.events) {
+        if (state.currentRunId && event.runId && event.runId !== state.currentRunId) continue;
+        if (event.event === 'node:start') map[event.nodeId] = 'running';
+        else if (event.event === 'node:done') {
+          map[event.nodeId] = event.result?.ok ? 'ok' : event.result?.skipped ? 'skipped' : 'error';
+        } else if (event.event === 'node:skip') map[event.nodeId] = 'skipped';
+      }
+      return map;
+    },
   },
   actions: {
     async init() {
@@ -216,6 +230,8 @@ export const useWorkflowStore = defineStore('workflow', {
       this.selectedNodeId = this.draft.nodes[0]?.id || null;
       this.selectedEdgeIndex = null;
       this.runResult = null;
+      this.validation = null;
+      this.currentRunId = null;
     },
     /**
      * 自动布局：按最长路径计算每个节点所处的拓扑层级，
@@ -303,11 +319,25 @@ export const useWorkflowStore = defineStore('workflow', {
         this.draft = null;
       }
     },
+    /** 运行前静态校验：图有错就在按下运行时说清楚，而不是跑完得到一串 skipped */
+    async validate() {
+      if (!this.draft) return null;
+      this.validation = await window.omni.workflow.validate(this.draft);
+      return this.validation;
+    },
+    async stop() {
+      if (!this.currentRunId) return null;
+      return window.omni.workflow.stop(this.currentRunId);
+    },
     async run() {
       if (!this.draft) return null;
+      const check = await this.validate();
+      if (check && !check.ok) return null;
       await this.save();
       this.running = true;
       this.events = [];
+      this.currentRunId = null;
+      this.runResult = null;
       try {
         const result = await window.omni.workflow.run(this.draft.id, {});
         this.runResult = result;
@@ -319,7 +349,8 @@ export const useWorkflowStore = defineStore('workflow', {
     pushEvent(event) {
       this.events.push(event);
       if (this.events.length > 200) this.events.shift();
-      if (event.event === 'run:done' && event.runId === this.runResult?.runId) this.running = false;
+      if (event.event === 'run:start') this.currentRunId = event.runId;
+      if (event.event === 'run:done' && event.runId === this.currentRunId) this.running = false;
     },
   },
 });

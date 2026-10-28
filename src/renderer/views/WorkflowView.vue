@@ -29,6 +29,23 @@ function moveNode(id, pos) {
   if (node) node.pos = pos;
 }
 
+const selectedEdge = computed(() =>
+  store.selectedEdgeIndex !== null ? store.draft?.edges?.[store.selectedEdgeIndex] || null : null,
+);
+
+/** 条件分支：给连线打上 when，引擎才会按 condition 的真假选择分支 */
+const edgeWhen = computed({
+  get: () => selectedEdge.value?.when ?? '',
+  set: (value) => {
+    const edge = selectedEdge.value;
+    if (!edge) return;
+    if (value) edge.when = value;
+    else delete edge.when;
+  },
+});
+
+const nodeLabel = (id) => (store.draft?.nodes || []).find((node) => node.id === id)?.label || id;
+
 const runSummary = computed(() => {
   const results = store.runResult?.results || {};
   return Object.entries(results).map(([id, result]) => ({
@@ -70,6 +87,16 @@ const runSummary = computed(() => {
         </select>
         <button @click="addNode">{{ t('workflow.addNode') }}</button>
         <button @click="store.autoLayout()">{{ t('workflow.autoLayout') }}</button>
+        <select
+          v-if="store.selectedEdgeIndex !== null"
+          v-model="edgeWhen"
+          :title="t('workflow.branch')"
+          style="width: 130px"
+        >
+          <option value="">{{ t('workflow.branchAlways') }}</option>
+          <option value="true">{{ t('workflow.branchTrue') }}</option>
+          <option value="false">{{ t('workflow.branchFalse') }}</option>
+        </select>
         <button
           v-if="store.selectedEdgeIndex !== null"
           class="danger"
@@ -78,7 +105,11 @@ const runSummary = computed(() => {
           {{ t('workflow.deleteEdge') }}
         </button>
         <div class="topbar-spacer" />
+        <button class="danger" :disabled="!store.currentId" @click="store.remove(store.currentId)">
+          {{ t('workflow.delete') }}
+        </button>
         <button @click="store.save()">{{ t('workflow.save') }}</button>
+        <button v-if="store.running" class="danger" @click="store.stop()">{{ t('workflow.stop') }}</button>
         <button class="primary" :disabled="store.running || !draftNodes.length" @click="store.run()">
           {{ store.running ? t('workflow.running') : t('workflow.run') }}
         </button>
@@ -89,6 +120,7 @@ const runSummary = computed(() => {
         :nodes="draftNodes"
         :edges="draftEdges"
         :devices="omni.devices"
+        :node-states="store.liveStates"
         :selected-node-id="store.selectedNodeId"
         :selected-edge-index="store.selectedEdgeIndex"
         @select-node="store.selectNode"
@@ -103,6 +135,28 @@ const runSummary = computed(() => {
         "
       />
       <div v-else class="empty">{{ t('workflow.selectOrCreate') }}</div>
+
+      <section
+        v-if="store.validation && (store.validation.errors.length || store.validation.warnings.length)"
+        class="panel"
+      >
+        <div class="panel-title">
+          {{ t('workflow.validation') }}
+          <span class="chip" :class="store.validation.ok ? 'warn' : 'err'">
+            {{ store.validation.errors.length || store.validation.warnings.length }}
+          </span>
+        </div>
+        <div class="panel-body col text-12">
+          <div v-for="(item, index) in store.validation.errors" :key="`e${index}`" class="row" style="color: var(--err)">
+            <span>✕</span>
+            <span>{{ item.nodeId ? `${nodeLabel(item.nodeId)}：${item.message}` : item.message }}</span>
+          </div>
+          <div v-for="(item, index) in store.validation.warnings" :key="`w${index}`" class="row" style="color: var(--warn)">
+            <span>!</span>
+            <span>{{ item.nodeId ? `${nodeLabel(item.nodeId)}：${item.message}` : item.message }}</span>
+          </div>
+        </div>
+      </section>
 
       <section v-if="store.runResult" class="panel" style="max-height: 190px; overflow: auto">
         <div class="panel-title">

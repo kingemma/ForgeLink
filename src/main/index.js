@@ -11,6 +11,7 @@ const { localSubnets } = require('./discovery/arp');
 const { Agent } = require('./runtime/agent');
 const { Monitor } = require('./runtime/monitor');
 const { WorkflowEngine } = require('./runtime/workflow/engine');
+const { validateWorkflow } = require('./runtime/workflow/validate');
 const { listDrivers } = require('./drivers');
 const { SimulatorCluster } = require('./simulator');
 
@@ -346,6 +347,8 @@ function registerIpc() {
     bus.info('workflow', t('workflow.saved', { name: saved.name }));
     return saved;
   });
+  ipcMain.handle('workflow:validate', (_event, workflow) => validateWorkflow(workflow, registry));
+
   ipcMain.handle('workflow:remove', (_event, id) => {
     store.update('workflows', (list) => list.filter((item) => item.id !== id), []);
     return { ok: true };

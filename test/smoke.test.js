@@ -11,14 +11,28 @@ const { IppClient } = require('../src/main/protocols/ipp');
 const { SnmpClient } = require('../src/main/protocols/snmp');
 const { LineClient } = require('../src/main/protocols/raw');
 
-const PORTS = [5021, 8631, 9001, 9101];
+// 端口随机化：避免与正在运行的桌面端抢占默认端口，保证测试任何时候都能跑
+const BASE_PORT = 15000 + Math.floor(Math.random() * 3000);
+const PORTS = {
+  modbus: BASE_PORT,
+  ipp: BASE_PORT + 1,
+  text: BASE_PORT + 2,
+  jet: BASE_PORT + 3,
+  snmp: BASE_PORT + 4,
+};
 // 定向扫描本机：避免测试去枚举整个局域网，保证结果确定且快速
-const SCAN_OPTIONS = { ports: PORTS, hosts: ['127.0.0.1'] };
+const SCAN_OPTIONS = { ports: [PORTS.modbus, PORTS.ipp, PORTS.text, PORTS.jet], hosts: ['127.0.0.1'] };
 
 let cluster;
 
 test.before(() => {
-  cluster = new SimulatorCluster();
+  cluster = new SimulatorCluster({
+    robotModbusPort: PORTS.modbus,
+    robotTextPort: PORTS.text,
+    printerIppPort: PORTS.ipp,
+    printerJetPort: PORTS.jet,
+    printerSnmpPort: PORTS.snmp,
+  });
   cluster.start();
 });
 
@@ -27,7 +41,7 @@ test.after(() => {
 });
 
 test('协议层：Modbus-TCP 能读到机械臂寄存器', async () => {
-  const client = await ModbusClient.connect('127.0.0.1', 5021, { timeout: 2000 });
+  const client = await ModbusClient.connect('127.0.0.1', PORTS.modbus, { timeout: 2000 });
   try {
     const registers = await client.readHoldingRegisters(0, 14);
     assert.strictEqual(registers[0], 0x5242, '设备标识寄存器应为 0x5242');
@@ -38,21 +52,21 @@ test('协议层：Modbus-TCP 能读到机械臂寄存器', async () => {
 });
 
 test('协议层：IPP 能查询打印机属性', async () => {
-  const client = new IppClient({ host: '127.0.0.1', port: 8631, path: '/ipp/print' });
+  const client = new IppClient({ host: '127.0.0.1', port: PORTS.ipp, path: '/ipp/print' });
   const info = await client.getPrinterAttributes();
   assert.ok(info.makeAndModel, '应返回 make-and-model');
   assert.strictEqual(info.state, 'idle');
 });
 
 test('协议层：SNMP 能读取 Printer MIB', async () => {
-  const client = new SnmpClient({ host: '127.0.0.1', port: 8161 });
+  const client = new SnmpClient({ host: '127.0.0.1', port: PORTS.snmp });
   const results = await client.get(['1.3.6.1.2.1.1.1.0', '1.3.6.1.2.1.43.11.1.1.9.1.1']);
   assert.ok(results['1.3.6.1.2.1.1.1.0'].value.includes('ForgeLink'));
   assert.ok(results['1.3.6.1.2.1.43.11.1.1.9.1.1'].value > 0);
 });
 
 test('协议层：行式文本协议能查询机械臂状态', async () => {
-  const client = await LineClient.connect('127.0.0.1', 9001, { timeout: 2000 });
+  const client = await LineClient.connect('127.0.0.1', PORTS.text, { timeout: 2000 });
   try {
     const response = await client.command('STATE');
     assert.ok(response.includes('STATUS:'), `响应应包含状态字段，实际：${response}`);
@@ -152,6 +166,88 @@ test('机械臂：品牌识别与可配置寄存器映射', async () => {
   assert.strictEqual(map.commands.home, 20);
   assert.strictEqual(map.commands.stop, 5, '未覆盖的命令码应保留默认值');
   assert.deepStrictEqual(map.joints, [2, 3, 4, 5, 6, 7], '未覆盖的字段应保留默认值');
+});
+
+test('编排层：运行前校验能定位配置错误、环与缺失分支', async () => {
+  const { validateWorkflow } = require('../src/main/runtime/workflow/validate');
+  const registry = new Registry();
+
+  const empty = validateWorkflow({ nodes: [], edges: [] }, registry);
+  assert.strictEqual(empty.ok, false);
+  assert.ok(empty.errors.some((item) => item.code === 'empty'));
+
+  const bad = validateWorkflow(
+    {
+      nodes: [
+        { id: 'a', type: 'device', params: { deviceId: '', action: '' } },
+        { id: 'b', type: 'condition', params: {} },
+      ],
+      edges: [],
+    },
+    registry,
+  );
+  assert.strictEqual(bad.ok, false);
+  assert.ok(bad.errors.some((item) => item.nodeId === 'a' && item.code === 'missingDevice'));
+  assert.ok(bad.errors.some((item) => item.nodeId === 'a' && item.code === 'missingAction'));
+  assert.ok(bad.errors.some((item) => item.nodeId === 'b' && item.code === 'missingExpression'));
+
+  const cyclic = validateWorkflow(
+    {
+      nodes: [
+        { id: 'x', type: 'notify', params: { message: 'a' } },
+        { id: 'y', type: 'notify', params: { message: 'b' } },
+      ],
+      edges: [
+        { from: 'x', to: 'y' },
+        { from: 'y', to: 'x' },
+      ],
+    },
+    registry,
+  );
+  assert.ok(cyclic.errors.some((item) => item.code === 'cycle'), '应检出环');
+
+  const branch = validateWorkflow(
+    {
+      nodes: [
+        { id: 'c', type: 'condition', params: { expression: '{{ input.ok }}' } },
+        { id: 'd', type: 'notify', params: { message: 't' } },
+        { id: 'e', type: 'notify', params: { message: 'f' } },
+      ],
+      edges: [
+        { from: 'c', to: 'd' },
+        { from: 'c', to: 'e' },
+      ],
+    },
+    registry,
+  );
+  assert.strictEqual(branch.ok, true);
+  assert.ok(branch.warnings.some((item) => item.code === 'branchAmbiguous'), '未标记分支应告警');
+});
+
+test('编排层：条件分支按 edge.when 选择下游，且工作流入参可用', async () => {
+  const registry = new Registry();
+  const agent = new Agent({ registry, store: null });
+  const engine = new WorkflowEngine({ agent, registry });
+
+  const run = await engine.run(
+    {
+      id: 'branch',
+      name: '分支',
+      nodes: [
+        { id: 'c', type: 'condition', params: { expression: '{{ eq(input.value, 1) }}' } },
+        { id: 'yes', type: 'notify', params: { message: '走了真分支' } },
+        { id: 'no', type: 'notify', params: { message: '走了假分支' } },
+      ],
+      edges: [
+        { from: 'c', to: 'yes', when: 'true' },
+        { from: 'c', to: 'no', when: 'false' },
+      ],
+      input: { value: 1 },
+    },
+  );
+  assert.strictEqual(run.status, 'success', JSON.stringify(run.results));
+  assert.ok(run.results.yes.ok, '真分支应执行');
+  assert.ok(run.results.no.skipped, '假分支应被跳过');
 });
 
 test('编排层：waitUntil 按设备真实状态完成交接（替代硬编码延时）', async () => {
