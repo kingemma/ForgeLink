@@ -317,6 +317,22 @@ label.field {
   background: var(--warn);
 }
 
+/* ---------------------------------------------------------------- 弹层 */
+.confirm-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.confirm-panel {
+  width: 420px;
+  max-width: 100%;
+}
+
 /* ---------------------------------------------------------------- 卡片 */
 .panel {
   background: var(--panel);

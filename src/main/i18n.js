@@ -29,6 +29,7 @@ const MESSAGES = {
     'discovery.autoFailed': '自动发现失败：{msg}',
     'workflow.saved': '已保存工作流：{name}',
     'workflow.created': '已生成示例工作流：机械臂取放 + 打印标签',
+    'devices.cleared': '已清空 {n} 个设备档案',
 
     'demo.name': '示例：机械臂取放 + 打印标签',
     'demo.description': '机械臂回到安全位 → 移动到取件位 → 抓取 → 搬运到放件位 → 释放 → 打印机打印含循环计数的标签',
@@ -66,6 +67,7 @@ const MESSAGES = {
     'discovery.autoFailed': 'Auto-discovery failed: {msg}',
     'workflow.saved': 'Saved workflow: {name}',
     'workflow.created': 'Generated sample workflow: robot-arm pick & place + print label',
+    'devices.cleared': 'Cleared {n} device profiles',
 
     'demo.name': 'Sample: Robot-arm Pick & Place + Print Label',
     'demo.description': 'Robot returns to safe pose → moves to pick pose → grips → carries to place pose → releases → printer prints a label with the cycle count',

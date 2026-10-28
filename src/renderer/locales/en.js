@@ -20,6 +20,9 @@ export default {
   'topbar.platform': 'Platform',
   'topbar.kernel': 'Kernel v',
 
+  'common.cancel': 'Cancel',
+  'common.confirm': 'Confirm',
+
   'guide.title': 'Getting started',
   'guide.open': 'Guide',
   'guide.close': 'Close',
@@ -46,6 +49,11 @@ export default {
   'devices.rediscover': 'Rediscover',
   'devices.emptyFiltered': 'No matching devices',
   'devices.emptyNoDevice': 'No devices yet: click "{action}" at the top-right, or start the built-in simulator',
+  'devices.clear': 'Clear devices',
+  'devices.clearTitle': 'Clear all devices',
+  'devices.clearMessage':
+    'This removes {n} devices from the local profile together with their time-series data, and breaks workflow references to them. It cannot be undone.',
+  'devices.clearAction': 'Clear all',
 
   'workflow.title': 'Workflow',
   'workflow.nodes': '{n} nodes',

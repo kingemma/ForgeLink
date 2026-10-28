@@ -211,9 +211,14 @@ function registerIpc() {
     return { ok: Boolean(device), device };
   });
 
-  ipcMain.handle('devices:clear', () => {
+  ipcMain.handle('devices:clear', async () => {
+    const removed = registry.list().length;
     registry.clear();
-    return { ok: true };
+    // 先关掉每个驱动再清缓存：残留实例会握着旧连接与句柄
+    await Promise.allSettled([...agent.drivers.values()].map((entry) => entry.driver?.close?.()));
+    agent.drivers.clear();
+    bus.info('device', t('devices.cleared', { n: removed }));
+    return { ok: true, removed };
   });
 
   ipcMain.handle('device:refresh', async (_event, id) => {

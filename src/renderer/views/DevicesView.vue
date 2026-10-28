@@ -4,12 +4,14 @@ import { useI18n } from 'vue-i18n';
 import { useOmniStore } from '../stores';
 import DeviceCard from '../components/DeviceCard.vue';
 import DeviceDetail from '../components/DeviceDetail.vue';
+import ConfirmDialog from '../components/ConfirmDialog.vue';
 
 const store = useOmniStore();
 const { t } = useI18n();
 const keyword = ref('');
 const kindFilter = ref('all');
 const statusFilter = ref('all');
+const confirmClearOpen = ref(false);
 
 /** 离线 = 非 online（含 offline / error / unknown），保证「全部 = 在线 + 离线」 */
 const statusGroups = computed(() => [
@@ -50,6 +52,16 @@ async function handleRefresh(id) {
   await store.refreshDevice(id);
   store.devices = await window.omni.devices.list();
 }
+
+/** 清空是不可撤销的破坏性操作，必须走确认弹窗 */
+async function handleClearAll() {
+  await store.clearDevices();
+  confirmClearOpen.value = false;
+  // 筛选条件一起复位，否则空列表会显示「该分组下没有设备」让人误以为只是被过滤掉了
+  keyword.value = '';
+  kindFilter.value = 'all';
+  statusFilter.value = 'all';
+}
 </script>
 
 <template>
@@ -76,6 +88,9 @@ async function handleRefresh(id) {
       <div class="topbar-spacer" />
       <button v-if="store.discovery.running" class="chip warn" disabled>{{ store.discovery.message }}</button>
       <button class="ghost" @click="store.scan({ deep: false })">{{ t('devices.rediscover') }}</button>
+      <button class="danger" :disabled="!store.devices.length" @click="confirmClearOpen = true">
+        {{ t('devices.clear') }}
+      </button>
     </div>
 
     <div class="grid-devices flex-1">
@@ -97,6 +112,17 @@ async function handleRefresh(id) {
       @close="store.selectDevice(null)"
       @refresh="handleRefresh"
       @remove="store.removeDevice"
+    />
+
+    <ConfirmDialog
+      :open="confirmClearOpen"
+      :title="t('devices.clearTitle')"
+      :message="t('devices.clearMessage', { n: store.devices.length })"
+      :confirm-text="t('devices.clearAction')"
+      :cancel-text="t('common.cancel')"
+      danger
+      @confirm="handleClearAll"
+      @cancel="confirmClearOpen = false"
     />
   </div>
 </template>

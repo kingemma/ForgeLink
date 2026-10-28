@@ -138,6 +138,15 @@ export const useOmniStore = defineStore('omni', {
       this.selectedDeviceId = null;
     },
 
+    /** 清空本机档案里的全部设备；时序缓冲随注册表一起丢弃 */
+    async clearDevices() {
+      const result = await window.omni.devices.clear();
+      this.devices = [];
+      this.selectedDeviceId = null;
+      this.history = [];
+      return result;
+    },
+
     async toggleSimulator() {
       this.simulator = this.simulator.running ? await window.omni.simulator.stop() : await window.omni.simulator.start();
       return this.simulator;

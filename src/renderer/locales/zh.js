@@ -20,6 +20,9 @@ export default {
   'topbar.platform': '平台',
   'topbar.kernel': '内核 v',
 
+  'common.cancel': '取消',
+  'common.confirm': '确认',
+
   'guide.title': '使用引导',
   'guide.open': '使用引导',
   'guide.close': '关闭',
@@ -46,6 +49,11 @@ export default {
   'devices.rediscover': '重新发现',
   'devices.emptyFiltered': '没有匹配的设备',
   'devices.emptyNoDevice': '尚未发现设备：点击右上角「{action}」，或先启动内置模拟器',
+  'devices.clear': '清空设备',
+  'devices.clearTitle': '清空全部设备',
+  'devices.clearMessage':
+    '将移除本机档案里的 {n} 台设备及其时序数据，工作流中对这些设备的引用会随之失效。此操作不可撤销。',
+  'devices.clearAction': '确认清空',
 
   'workflow.title': '工作流',
   'workflow.nodes': '{n} 个节点',
