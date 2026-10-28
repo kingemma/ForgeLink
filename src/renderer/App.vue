@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useOmniStore } from './stores';
 import { useUiStore } from './stores/ui';
@@ -13,6 +13,7 @@ import LogsView from './views/LogsView.vue';
 const { t } = useI18n();
 const store = useOmniStore();
 const ui = useUiStore();
+const demoError = ref('');
 
 const NAV = [
   { id: 'devices', icon: '🧩' },
@@ -27,6 +28,25 @@ const currentView = computed(() => VIEW_MAP[store.view]);
 const progressPercent = computed(() =>
   store.discovery.total ? Math.round((store.discovery.current / store.discovery.total) * 100) : 0,
 );
+
+/** 一键演示：设备发现与工作流重建都在 store 里完成，这里只负责失败提示 */
+async function handleGenerateDemo() {
+  demoError.value = '';
+  try {
+    const result = await store.generateDemo();
+    if (!result?.ok) showDemoError(result?.reason);
+  } catch (error) {
+    showDemoError(error.message);
+  }
+}
+
+/** 失败提示只在顶栏停留几秒，完整原因主进程已写入日志 */
+function showDemoError(reason) {
+  demoError.value = t('topbar.demoFailed', { reason: reason || '-' });
+  setTimeout(() => {
+    demoError.value = '';
+  }, 6000);
+}
 
 onMounted(() => {
   ui.init();
@@ -47,6 +67,8 @@ onMounted(() => {
       <span class="chip" :class="store.simulator.running ? 'ok' : ''">
         {{ t('topbar.simulator') }} {{ store.simulator.running ? t('topbar.running') : t('topbar.stopped') }}
       </span>
+
+      <span v-if="demoError" class="chip err">{{ demoError }}</span>
 
       <div v-if="store.discovery.running" class="chip warn" style="min-width: 260px">
         {{ store.discovery.message }}
@@ -83,6 +105,13 @@ onMounted(() => {
         {{ t('topbar.quickScan') }}
       </button>
       <button :disabled="store.discovery.running" @click="store.scan({ deep: true })">{{ t('topbar.deepScan') }}</button>
+      <button
+        class="ghost"
+        :disabled="store.demoGenerating || store.discovery.running"
+        @click="handleGenerateDemo"
+      >
+        {{ store.demoGenerating ? t('topbar.generatingDemo') : `🎬 ${t('topbar.generateDemo')}` }}
+      </button>
       <button class="ghost" @click="store.toggleSimulator()">
         {{ store.simulator.running ? t('topbar.stopSimulator') : t('topbar.startSimulator') }}
       </button>

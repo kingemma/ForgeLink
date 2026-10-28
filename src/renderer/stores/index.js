@@ -42,6 +42,8 @@ export const useOmniStore = defineStore('omni', {
     logs: [],
     discovery: { running: false, phase: '', message: '', current: 0, total: 0 },
     simulator: { running: false, devices: [] },
+    /** 演示环境正在生成：按钮据此禁用，避免并发触发两轮发现 */
+    demoGenerating: false,
     monitorIntervalMs: 2000,
     appInfo: null,
     lastEvent: null,
@@ -145,6 +147,31 @@ export const useOmniStore = defineStore('omni', {
       this.selectedDeviceId = null;
       this.history = [];
       return result;
+    },
+
+    /**
+     * 一键演示：内核拉起模拟器、发现设备并重建示例工作流，
+     * 成功后直接把界面带到可以立刻点「运行」的编排页。
+     */
+    async generateDemo() {
+      if (this.demoGenerating) return null;
+      this.demoGenerating = true;
+      try {
+        const result = await window.omni.demo.generate();
+        // 失败时保持现状：内核已经记录了原因，界面不该顺手把已有档案清掉
+        if (!result?.ok || !result.workflow) return result;
+
+        this.devices = result.devices || (await window.omni.devices.list());
+        this.simulator = result.simulator || (await window.omni.simulator.status());
+
+        const workflow = useWorkflowStore();
+        await workflow.init();
+        workflow.open(result.workflow.id);
+        this.view = 'workflow';
+        return result;
+      } finally {
+        this.demoGenerating = false;
+      }
     },
 
     async toggleSimulator() {

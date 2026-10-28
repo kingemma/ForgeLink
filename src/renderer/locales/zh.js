@@ -19,6 +19,9 @@ export default {
   'topbar.stopSimulator': '停止模拟器',
   'topbar.platform': '平台',
   'topbar.kernel': '内核 v',
+  'topbar.generateDemo': '生成演示 Demo',
+  'topbar.generatingDemo': '正在生成演示…',
+  'topbar.demoFailed': '演示生成失败：{reason}',
 
   'common.cancel': '取消',
   'common.confirm': '确认',

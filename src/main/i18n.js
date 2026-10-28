@@ -30,6 +30,8 @@ const MESSAGES = {
     'workflow.saved': '已保存工作流：{name}',
     'workflow.created': '已生成示例工作流：机械臂取放 + 打印标签',
     'devices.cleared': '已清空 {n} 个设备档案',
+    'demo.generated': '演示环境已就绪：{name}',
+    'demo.noDevices': '未发现机械臂或打印机，无法生成演示环境',
 
     'demo.name': '示例：机械臂取放 + 打印标签',
     'demo.description': '机械臂回到安全位 → 移动到取件位 → 抓取 → 搬运到放件位 → 释放 → 打印机打印含循环计数的标签',
@@ -68,6 +70,8 @@ const MESSAGES = {
     'workflow.saved': 'Saved workflow: {name}',
     'workflow.created': 'Generated sample workflow: robot-arm pick & place + print label',
     'devices.cleared': 'Cleared {n} device profiles',
+    'demo.generated': 'Demo environment ready: {name}',
+    'demo.noDevices': 'No robot arm or printer found, cannot build the demo environment',
 
     'demo.name': 'Sample: Robot-arm Pick & Place + Print Label',
     'demo.description': 'Robot returns to safe pose → moves to pick pose → grips → carries to place pose → releases → printer prints a label with the cycle count',

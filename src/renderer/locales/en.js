@@ -19,6 +19,9 @@ export default {
   'topbar.stopSimulator': 'Stop simulator',
   'topbar.platform': 'Platform',
   'topbar.kernel': 'Kernel v',
+  'topbar.generateDemo': 'Generate demo',
+  'topbar.generatingDemo': 'Building demo…',
+  'topbar.demoFailed': 'Demo setup failed: {reason}',
 
   'common.cancel': 'Cancel',
   'common.confirm': 'Confirm',

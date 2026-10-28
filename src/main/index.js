@@ -7,6 +7,7 @@ const { t, setSettingsDir, loadLocale, getLocale, setLocale } = require('./i18n'
 const { Store } = require('./kernel/store');
 const { Registry } = require('./kernel/registry');
 const { DiscoveryService } = require('./discovery');
+const { localSubnets } = require('./discovery/arp');
 const { Agent } = require('./runtime/agent');
 const { Monitor } = require('./runtime/monitor');
 const { WorkflowEngine } = require('./runtime/workflow/engine');
@@ -23,6 +24,7 @@ const { SimulatorCluster } = require('./simulator');
 const DEV_URL = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173';
 const RENDERER_FILE = path.join(__dirname, '..', '..', 'dist-renderer', 'index.html');
 const MAX_LOGS = 500;
+const DEMO_WORKFLOW_ID = 'demo-pick-and-label';
 
 let mainWindow = null;
 const logs = [];
@@ -127,17 +129,22 @@ function createWindow() {
 }
 
 // ---------------------------------------------------------------- 默认工作流
-/** 首次发现到「机械臂 + 打印机」时，自动生成一条可运行的示例编排 */
-function ensureDemoWorkflow() {
+/**
+ * 生成「机械臂 + 打印机」示例编排。
+ *
+ * 只在两类设备都已入档时才生成。force 为真时按最新设备 id 重建：
+ * 模拟器重启或设备换了 IP 后，旧工作流里的 deviceId 会指向不存在的设备。
+ */
+function ensureDemoWorkflow({ force = false } = {}) {
   const existing = store.get('workflows', []);
-  if (existing.some((workflow) => workflow.id === 'demo-pick-and-label')) return null;
+  if (!force && existing.some((workflow) => workflow.id === DEMO_WORKFLOW_ID)) return null;
   const devices = registry.list();
   const robot = devices.find((device) => device.kind === 'robot-arm');
   const printer = devices.find((device) => device.kind === 'printer');
   if (!robot || !printer) return null;
 
   const workflow = {
-    id: 'demo-pick-and-label',
+    id: DEMO_WORKFLOW_ID,
     name: t('demo.name'),
     description: t('demo.description'),
     nodes: [
@@ -173,9 +180,51 @@ function ensureDemoWorkflow() {
     ],
     updatedAt: Date.now(),
   };
-  store.update('workflows', (list) => [...list, workflow], []);
+  store.update('workflows', (list) => [...list.filter((item) => item.id !== DEMO_WORKFLOW_ID), workflow], []);
   bus.info('workflow', t('workflow.created'));
   return workflow;
+}
+
+/**
+ * 兜底：模拟器已经在自己机器上监听端口，但广播通道可能被防火墙挡住。
+ * 演示场景下直接把模拟器档案写进注册表，保证「一键演示」不依赖网络环境。
+ */
+function registerSimulatorDevices() {
+  if (!simulator?.running) return [];
+  const localIp = localSubnets()[0]?.address || '127.0.0.1';
+  // 只补缺的那一类：局域网里已有真实机械臂时不该再塞一台虚拟的
+  const knownKinds = new Set(registry.list().map((device) => device.kind));
+  const created = [];
+  for (const manifest of simulator.manifest) {
+    if (knownKinds.has(manifest.kind)) continue;
+    created.push(
+      registry.upsert({
+        // 同一 IP 上会挂多台模拟设备，必须用 kind 区分 id，否则会互相覆盖
+        id: `${Registry.keyOf(localIp)}__sim-${manifest.kind}`,
+        ip: localIp,
+        name: manifest.name,
+        kind: manifest.kind,
+        vendor: manifest.vendor,
+        model: manifest.model,
+        tags: ['simulator', manifest.kind],
+        interfaces: (manifest.interfaces || []).map((item) => ({
+          port: item.port,
+          protocol: item.protocol,
+          transport: item.transport || 'tcp',
+          confidence: 1,
+          evidence: { source: 'simulator', description: item.description || null },
+        })),
+        status: 'online',
+      }),
+    );
+  }
+  return created;
+}
+
+/** 演示需要机械臂与打印机同时在场，缺任何一类就用模拟器补齐 */
+function hasDemoDevices() {
+  const devices = registry.list();
+  return devices.some((device) => device.kind === 'robot-arm') && devices.some((device) => device.kind === 'printer');
 }
 
 // ---------------------------------------------------------------- IPC
@@ -219,6 +268,31 @@ function registerIpc() {
     agent.drivers.clear();
     bus.info('device', t('devices.cleared', { n: removed }));
     return { ok: true, removed };
+  });
+
+  ipcMain.handle('demo:generate', async () => {
+    if (!simulator?.running) {
+      simulator = new SimulatorCluster();
+      simulator.start();
+      bus.info('simulator', t('simulator.started'));
+    }
+
+    // 只走 ARP 表 + 广播通道：演示按钮不该因为 /24 全网枚举转十几秒
+    const scan = await discovery.scan({ deep: false, includeSubnetScan: false });
+    agent.syncAll();
+
+    // 广播被防火墙挡住时用模拟器档案兜底，保证演示不依赖网络环境
+    if (!hasDemoDevices()) registerSimulatorDevices();
+    agent.syncAll();
+
+    const workflow = ensureDemoWorkflow({ force: true });
+    if (!workflow) {
+      bus.warn('demo', t('demo.noDevices'));
+      return { ok: false, reason: t('demo.noDevices'), devices: registry.list(), simulator: simulator.status() };
+    }
+
+    bus.info('demo', t('demo.generated', { name: workflow.name }));
+    return { ok: true, workflow, devices: registry.list(), simulator: simulator.status(), discovery: scan };
   });
 
   ipcMain.handle('device:refresh', async (_event, id) => {

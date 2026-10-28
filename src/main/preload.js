@@ -54,6 +54,9 @@ contextBridge.exposeInMainWorld('omni', {
     start: () => invoke('simulator:start'),
     stop: () => invoke('simulator:stop'),
   },
+  demo: {
+    generate: () => invoke('demo:generate'),
+  },
   settings: {
     getLocale: () => invoke('settings:getLocale'),
     setLocale: (locale) => invoke('settings:setLocale', locale),
