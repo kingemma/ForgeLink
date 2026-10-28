@@ -1,5 +1,9 @@
 # ForgeLink · Lightweight Shopfloor Controller
 
+<p align="center">
+  <b>English</b> · <a href="README-zh.md">简体中文</a>
+</p>
+
 > Connect & Manage Robotic Arms, Factory Printers and Workshop Devices
 
 Auto-discover LAN devices → auto-identify protocols → monitor runtime status → orchestrate multi-device workflows.
@@ -64,6 +68,29 @@ On first launch it automatically: starts simulators → quick discovery → gene
 | OmniPrint-2000 printer | IPP `8631`, JetDirect `9101`, SNMP `8161` |
 
 Both self-announce via a UDP beacon (`47809`) and mDNS, so they are auto-discovered and classified by the agent.
+
+## Identifiable Robot Arm Brands
+
+Brand is identified during discovery from **publicly verifiable** clues only: device self-description (mDNS / SNMP / HTTP / SSDP), name keywords, and vendor-published ports.
+
+| Vendor | Clues |
+| --- | --- |
+| Universal Robots | name keywords (UR3/UR5/UR10/UR16/UR20), ports `29999`, `30001`–`30004` |
+| JAKA | name keywords, port `10000` |
+| AUBO | name keywords |
+| Rokae | name keywords |
+| Han's Robot | name keywords |
+| Elite Robots | name keywords |
+| ESTUN | name keywords |
+| Peitian | name keywords |
+| DOBOT | name keywords |
+| KUKA | name keywords, port `54600` |
+| ABB | name keywords (ABB Robotics / RobotWare / IRB) |
+| FANUC | name keywords |
+| Yaskawa | name keywords (incl. Motoman) |
+| Mitsubishi MELFA | name keywords, port `10000` |
+
+The driver layer does not branch per brand: any arm speaking Modbus-TCP can be attached through the same `RobotArmDriver`. Register maps are private vendor conventions with no public standard, so the built-in one is only a **default template** — override it per device via `config.registerMap` (see `src/main/drivers/robot-arm.js`). The action set (home / joint move / linear move / grip / release / speed / IO / reset / clear alarm / e-stop) is brand-agnostic: switching brands changes the map, not the workflow.
 
 ## Directory
 

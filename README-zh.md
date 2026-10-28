@@ -1,5 +1,9 @@
 # ForgeLink · 轻量级车间控制器
 
+<p align="center">
+  <a href="README.md">English</a> · <b>简体中文</b>
+</p>
+
 > Lightweight Shopfloor Controller | Connect & Manage Robotic Arms, Factory Printers and Workshop Devices
 >
 > 轻量级车间控制器：连接并管理机械臂、工厂打印机与各类车间设备。
@@ -66,6 +70,29 @@ npm test          # 内核端到端测试（协议 / 发现 / 驱动 / 编排）
 | OmniPrint-2000 打印机 | IPP `8631`、JetDirect `9101`、SNMP `8161` |
 
 两者都通过 UDP 信标（`47809`）与 mDNS 自述，因此可被智能体自动发现与归类。
+
+## 可识别的机械臂品牌
+
+发现层用**可公开核对**的线索识别品牌：设备自述（mDNS / SNMP / HTTP / SSDP）、名称关键字、厂商公开端口。
+
+| 厂商 | 识别线索 |
+| --- | --- |
+| Universal Robots（优傲） | 名称关键字（UR3/UR5/UR10/UR16/UR20）、端口 `29999`、`30001`–`30004` |
+| JAKA（节卡） | 名称关键字、端口 `10000` |
+| AUBO（遨博） | 名称关键字 |
+| Rokae（珞石） | 名称关键字 |
+| Han's Robot（大族） | 名称关键字 |
+| Elite Robots（艾利特） | 名称关键字 |
+| ESTUN（埃斯顿） | 名称关键字 |
+| Peitian（配天） | 名称关键字 |
+| DOBOT（越疆） | 名称关键字 |
+| KUKA | 名称关键字、端口 `54600` |
+| ABB | 名称关键字（ABB Robotics / RobotWare / IRB） |
+| FANUC | 名称关键字（含「发那科」「法兰克」） |
+| Yaskawa（安川） | 名称关键字（含 Motoman） |
+| Mitsubishi MELFA（三菱） | 名称关键字、端口 `10000` |
+
+驱动层不按品牌分叉：只要机械臂走 Modbus-TCP，就能用同一个 `RobotArmDriver` 接入。各厂商的寄存器映射是私有约定、没有公开标准，所以内置的是一份**默认映射模板**，接真机时在设备配置里用 `config.registerMap` 覆盖即可（见 `src/main/drivers/robot-arm.js`）。动作集（回零 / 关节移动 / 直线移动 / 抓取 / 释放 / 速度 / IO / 复位 / 清报警 / 急停）与品牌无关，换品牌只改映射、不改工作流。
 
 ## 目录
 
