@@ -7,6 +7,31 @@
 局域网设备自动发现 → 协议自动识别 → 运行状态监测 → 多设备工作流编排。
 技术栈：Node.js（内核） + Vue 3（界面） + Electron（桌面端）。
 
+## 界面预览
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/zh/device.png" width="420" /><br />
+      <sub><b>设备发现</b>：按在线状态分组，协议与可用动作就近展示</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/zh/orchestration.png" width="420" /><br />
+      <sub><b>工作流编排</b>：DAG 画布、自动布局与节点配置面板</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/zh/monitor.png" width="420" /><br />
+      <sub><b>状态监测</b>：逐设备曲线与最近一次采样</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/zh/logs.png" width="420" /><br />
+      <sub><b>运行日志</b>：内核事件按类别过滤</sub>
+    </td>
+  </tr>
+</table>
+
 ## 设计：五层递进
 
 | 层 | 要解决的问题 | 实现 |

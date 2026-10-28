@@ -5,6 +5,31 @@
 Auto-discover LAN devices → auto-identify protocols → monitor runtime status → orchestrate multi-device workflows.
 Tech stack: Node.js (kernel) + Vue 3 (UI) + Electron (desktop).
 
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/en/device.png" width="420" /><br />
+      <sub><b>Devices</b>: grouped by status, protocols and actions shown inline</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/en/orchestration.png" width="420" /><br />
+      <sub><b>Orchestration</b>: DAG canvas, auto-layout and node inspector</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/en/monitor.png" width="420" /><br />
+      <sub><b>Monitor</b>: per-device curves with the latest sample</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/screenshots/en/logs.png" width="420" /><br />
+      <sub><b>Logs</b>: kernel events filtered by category</sub>
+    </td>
+  </tr>
+</table>
+
 ## Design: Five Progressive Layers
 
 | Layer | Problem solved | Implementation |
