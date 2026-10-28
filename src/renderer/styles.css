@@ -36,7 +36,6 @@
   --body-bg: radial-gradient(1200px 600px at 20% -10%, #12233d 0%, var(--bg) 55%);
   --topbar-bg: linear-gradient(180deg, rgba(23, 38, 62, 0.95), rgba(13, 21, 38, 0.9));
   --sidebar-bg: rgba(13, 21, 38, 0.6);
-  --brand-glow: rgba(56, 189, 248, 0.45);
   --nav-active: linear-gradient(90deg, rgba(56, 189, 248, 0.16), transparent);
   --device-card-bg: linear-gradient(180deg, rgba(22, 36, 60, 0.9), rgba(15, 25, 43, 0.9));
 
@@ -85,11 +84,47 @@ body {
 .app-shell {
   display: grid;
   grid-template-columns: 190px 1fr;
-  grid-template-rows: 56px 1fr;
+  grid-template-rows: 38px 56px 1fr;
   grid-template-areas:
+    'title title'
     'top top'
     'nav main';
   height: 100%;
+}
+
+/**
+ * 自定义标题栏：整行可拖拽，右侧留给系统 overlay 绘制的窗口按钮。
+ * 高度必须与主进程 titleBarOverlay.height 一致，否则按钮会与内容错位。
+ */
+.titlebar {
+  grid-area: title;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  background: var(--topbar-bg);
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.titlebar-logo {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  object-fit: contain;
+}
+
+.titlebar-title {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.4px;
+}
+
+.titlebar-sub {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 12px;
 }
 
 .topbar {
@@ -100,28 +135,6 @@ body {
   padding: 0 18px;
   background: var(--topbar-bg);
   border-bottom: 1px solid var(--border);
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-}
-
-.brand-mark {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  box-shadow: 0 0 18px var(--brand-glow);
-}
-
-.brand-sub {
-  color: var(--muted);
-  font-weight: 400;
-  font-size: 12px;
 }
 
 .topbar-spacer {
@@ -689,7 +702,6 @@ label.field {
   --body-bg: #eef2f8;
   --topbar-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 251, 0.92));
   --sidebar-bg: rgba(241, 245, 251, 0.7);
-  --brand-glow: rgba(2, 132, 199, 0.35);
   --nav-active: linear-gradient(90deg, rgba(2, 132, 199, 0.12), transparent);
   --device-card-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 251, 0.95));
 

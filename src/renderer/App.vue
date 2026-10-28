@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n';
 import { useOmniStore } from './stores';
 import { useUiStore } from './stores/ui';
 import { availableLocales } from './i18n';
+import logoUrl from './assets/logo.png';
 import GuideOverlay from './components/GuideOverlay.vue';
 import DevicesView from './views/DevicesView.vue';
 import WorkflowView from './views/WorkflowView.vue';
@@ -56,12 +57,14 @@ onMounted(() => {
 
 <template>
   <div class="app-shell">
-    <header class="topbar">
-      <div class="brand">
-        <span class="brand-mark" />
-        <span>ForgeLink<span class="brand-sub"> · {{ t('brand.subtitle') }}</span></span>
-      </div>
+    <header class="titlebar">
+      <img class="titlebar-logo" :src="logoUrl" alt="ForgeLink" />
+      <span class="titlebar-title">
+        ForgeLink<span class="titlebar-sub"> · {{ t('brand.subtitle') }}</span>
+      </span>
+    </header>
 
+    <header class="topbar">
       <span class="chip accent">{{ t('topbar.devices') }} {{ store.devices.length }}</span>
       <span class="chip ok"> {{ t('topbar.online') }} {{ store.onlineCount }}</span>
       <span class="chip" :class="store.simulator.running ? 'ok' : ''">

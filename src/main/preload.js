@@ -61,4 +61,7 @@ contextBridge.exposeInMainWorld('omni', {
     getLocale: () => invoke('settings:getLocale'),
     setLocale: (locale) => invoke('settings:setLocale', locale),
   },
+  titleBar: {
+    setTheme: (theme) => invoke('window:theme', theme),
+  },
 });

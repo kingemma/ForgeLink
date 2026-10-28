@@ -1,6 +1,6 @@
 const path = require('node:path');
 const fs = require('node:fs');
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Menu } = require('electron');
 
 const bus = require('./kernel/bus');
 const { t, setSettingsDir, loadLocale, getLocale, setLocale } = require('./i18n');
@@ -89,6 +89,19 @@ function stripVolatile(device) {
 }
 
 // ---------------------------------------------------------------- 窗口
+/**
+ * 系统绘制的窗口按钮区不吃 CSS 变量，只能按主题传纯色；
+ * 取顶栏渐变的基色，避免右上角出现一块与顶栏不搭的底色。
+ */
+const TITLEBAR_THEMES = {
+  dark: { color: '#0d1526', symbolColor: '#e8effa' },
+  light: { color: '#f1f5fb', symbolColor: '#1b2735' },
+};
+
+function titleBarOverlay(theme) {
+  return { ...(TITLEBAR_THEMES[theme] || TITLEBAR_THEMES.dark), height: 38 };
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -97,6 +110,11 @@ function createWindow() {
     minHeight: 700,
     backgroundColor: '#0b1220',
     title: 'ForgeLink · 轻量级车间控制器',
+    // 任务栏 / 窗口标题栏图标；安装包图标由 build/icon.png 生成
+    icon: path.join(__dirname, 'icon.png'),
+    // 页面内自定义标题栏承载 logo 与程序名，最小化/关闭交给系统 overlay
+    titleBarStyle: 'hidden',
+    titleBarOverlay: titleBarOverlay('dark'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -356,6 +374,14 @@ function registerIpc() {
 
   ipcMain.handle('settings:getLocale', () => getLocale());
   ipcMain.handle('settings:setLocale', (_event, next) => setLocale(next));
+
+  // 主题切换时同步窗口按钮区配色；macOS 没有 overlay，返回 ok:false 让界面忽略
+  ipcMain.handle('window:theme', (_event, theme) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return { ok: false };
+    if (typeof mainWindow.setTitleBarOverlay !== 'function') return { ok: false };
+    mainWindow.setTitleBarOverlay(titleBarOverlay(theme));
+    return { ok: true };
+  });
 }
 
 // ---------------------------------------------------------------- 生命周期
@@ -371,6 +397,9 @@ function bootstrap() {
     agent.syncAll();
     bus.info('agent', t('agent.restored', { n: saved.length }));
   }
+
+  // 菜单栏（文件/编辑/视图/帮助）与自定义标题栏重复，直接去掉
+  Menu.setApplicationMenu(null);
 
   registerIpc();
   createWindow();
@@ -396,6 +425,9 @@ function bootstrap() {
       .catch((error) => bus.error('discovery', t('discovery.autoFailed', { msg: error.message })));
   }, 1500);
 }
+
+// Windows 任务栏/通知按 AppUserModelID 分组，缺省会归到 electron.exe 名下并显示它的图标
+app.setAppUserModelId('com.forgelink.desktop');
 
 app.whenReady().then(bootstrap);
 

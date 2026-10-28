@@ -54,4 +54,7 @@ globalThis.window.omni = {
     getLocale: async () => 'zh',
     setLocale: async () => 'zh',
   },
+  titleBar: {
+    setTheme: async () => ({ ok: true }),
+  },
 };

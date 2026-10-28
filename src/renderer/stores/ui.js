@@ -53,6 +53,8 @@ export const useUiStore = defineStore('ui', {
     },
     applyTheme() {
       document.documentElement.dataset.theme = this.theme;
+      // 窗口按钮区由系统绘制、不跟随 CSS，需要把主题同步给内核
+      window.omni?.titleBar?.setTheme?.(this.theme);
     },
   },
 });
